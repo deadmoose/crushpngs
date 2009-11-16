@@ -1,0 +1,14 @@
+crushpngs is a wrapper around pngcrush to help with handling a large number
+of files.
+
+It provides a way to only work on files modified since a certain date, and 
+gives a brief summary of the savings. It also works around an unfortunate bug
+in some versions of pngcrush where the "crushed" file is sometimes larger
+than the original.
+
+Feature wishlist:
+ * Feedback while running; I know that there are N files to process, but how 
+   far through am I?
+ * Support running multiple pngcrushes in parallel 
+ * More intelligently determine what is and isn't a PNG
+ * Check file age while building the list instead of after

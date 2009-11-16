@@ -1,0 +1,96 @@
+#!/bin/env python
+
+import os, datetime, subprocess
+from optparse import OptionParser
+
+def isPng (file):
+    return os.path.isfile(file) and file.endswith(".png")
+
+def findPngs (pngs, dir, files):
+    for file in files:
+        path = os.path.realpath(os.path.abspath(os.path.join(dir, file)))
+        if path not in files:
+            if isPng(path):
+                pngs.add(path)
+
+def findOldFiles (files, dateStr):
+    todate = lambda x: datetime.datetime.strptime(x, '%Y-%m-%d')
+    since = todate(options.date)
+    oldFiles = set()
+    for file in files:
+        if since > datetime.datetime.fromtimestamp(os.path.getmtime(file)):
+            oldFiles.add(file)
+
+    return oldFiles
+
+def crushPng (pngcrush, opts, file):
+    crushedFile = "%s.crushed" % file
+    process = subprocess.Popen([pngcrush, opts, file, crushedFile], 
+        stdout=open('/dev/null'), stderr=subprocess.PIPE)
+    if not process.wait() == 0:
+        stdout, stderr = process.communicate()
+        print "Error running pngcrush: %s" % stderr
+        os.remove(crushedFile)
+        exit(-1)
+
+    oldStat = os.stat(file)
+    newStat = os.stat(crushedFile)
+    if newStat.st_size < oldStat.st_size:
+        os.rename(crushedFile, file)
+        return oldStat.st_size - newStat.st_size
+    else:
+        os.remove(crushedFile)
+        return 0
+
+if __name__ == "__main__":
+    usage = "crushpngs [options] [path]"
+    parser = OptionParser(usage='''%s
+
+Runs pngcrush against all pngs found under a path and collects some information
+about the savings.
+
+''' % usage)
+    parser.add_option("--pngcrush", dest="path", default="pngcrush",
+        help="Path to the pngcrush executable")
+    parser.add_option("--pngcrush-opts", dest="opts", default="-q -brute -reduce",
+        help="Options to pass to pngcrush")
+    parser.add_option("-s", "--since", dest="date", 
+        help="Only crush files modified after the specified date")
+
+    (options, args) = parser.parse_args()
+
+    if len(args) == 0:
+        args.append(os.getcwd())
+
+    pngs = set()
+
+    for path in args:
+        os.path.walk(path, findPngs, pngs)
+
+    tooOld = None
+
+    if getattr(options, "date") is not None:
+        tooOld = findOldFiles(pngs, options.date)
+        pngs.difference_update(tooOld)
+
+    if len(pngs) == 0:
+        print "No files to crush"
+        exit(0)
+
+    if tooOld is not None:
+        print "Old files ignored: %s" % len(tooOld)
+    print "Files to process: %s" % len(pngs)
+
+    # Keep some stats
+    filesChanged = 0
+    bytesSaved = 0
+    
+    for png in pngs:
+        saved = crushPng(options.path, options.opts, png)
+        if saved > 0:
+            filesChanged += 1
+            bytesSaved += saved
+
+    # And print some summary info
+    print "Files changed: %d" % filesChanged
+    print "Bytes saved: %d" % bytesSaved
