@@ -1,27 +1,7 @@
 #!/usr/bin/env python
 
-import os, datetime, subprocess
+import os, subprocess, time
 from optparse import OptionParser
-
-def isPng (file):
-    return os.path.isfile(file) and file.endswith(".png")
-
-def findPngs (pngs, dir, files):
-    for file in files:
-        path = os.path.realpath(os.path.abspath(os.path.join(dir, file)))
-        if path not in files:
-            if isPng(path):
-                pngs.add(path)
-
-def findOldFiles (files, dateStr):
-    todate = lambda x: datetime.datetime.strptime(x, '%Y-%m-%d')
-    since = todate(options.date)
-    oldFiles = set()
-    for file in files:
-        if since > datetime.datetime.fromtimestamp(os.path.getmtime(file)):
-            oldFiles.add(file)
-
-    return oldFiles
 
 def crushPng (pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
@@ -43,41 +23,44 @@ def crushPng (pngcrush, opts, file):
         return 0
 
 if __name__ == "__main__":
-    usage = "crushpngs [options] [path]"
-    parser = OptionParser(usage='''%s
+    parser = OptionParser(usage='''crushpngs [options] [path]
 
 Runs pngcrush against all pngs found under a path and collects some information
 about the savings.
 
-''' % usage)
+''')
     parser.add_option("--pngcrush", dest="path", default="pngcrush",
         help="Path to the pngcrush executable")
     parser.add_option("--pngcrush-opts", dest="opts", default="-q -brute -reduce",
         help="Options to pass to pngcrush")
-    parser.add_option("-s", "--since", dest="date", 
+    parser.add_option("-s", "--since", dest="date", default="1970-01-01",
         help="Only crush files modified after the specified date")
 
     (options, args) = parser.parse_args()
 
     if len(args) == 0:
         args.append(os.getcwd())
+    earliest = time.mktime(time.strptime(options.date, '%Y-%m-%d'))
 
+    tooOld = set()
     pngs = set()
 
-    for path in args:
-        os.path.walk(path, findPngs, pngs)
+    for arg in args:
+        for root, dirs, files in os.walk(arg):
+            for name in files:
+                if not name.endswith('.png'):
+                    continue
+                path = os.path.join(root, name)
+                if os.path.getmtime(path) > earliest:
+                    pngs.add(path)
+                else:
+                    tooOld.add(path)
 
-    tooOld = None
-
-    if getattr(options, "date") is not None:
-        tooOld = findOldFiles(pngs, options.date)
-        pngs.difference_update(tooOld)
-
-    if len(pngs) == 0:
+    if not pngs:
         print "No files to crush"
         exit(0)
 
-    if tooOld is not None:
+    if tooOld:
         print "Old files ignored: %s" % len(tooOld)
     print "Files to process: %s" % len(pngs)
 
