@@ -12,3 +12,5 @@ Feature wishlist:
  * Support running multiple pngcrushes in parallel 
  * More intelligently determine what is and isn't a PNG
  * Check file age while building the list instead of after
+ * Options to ignore certain paths/patterns
+ * Read stored options from a dot file
