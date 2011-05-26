@@ -4,9 +4,9 @@ import os, subprocess, time, threading
 from optparse import OptionParser
 from Queue import Queue
 
-def crushPng (pngcrush, opts, file):
+def crushPng(pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
-    process = subprocess.Popen([pngcrush, opts, file, crushedFile], 
+    process = subprocess.Popen([pngcrush, opts, file, crushedFile],
         stdout=open('/dev/null'), stderr=subprocess.PIPE)
     if not process.wait() == 0:
         stdout, stderr = process.communicate()
@@ -18,10 +18,10 @@ def crushPng (pngcrush, opts, file):
     newStat = os.stat(crushedFile)
     if newStat.st_size < oldStat.st_size:
         os.rename(crushedFile, file)
-        return oldStat.st_size - newStat.st_size
+        return (oldStat.st_size, oldStat.st_size - newStat.st_size)
     else:
         os.remove(crushedFile)
-        return 0
+        return (oldStat.st_size, 0)
 
 if __name__ == "__main__":
     parser = OptionParser(usage='''crushpngs [options] [path]
@@ -50,11 +50,13 @@ about the savings.
     # Keep some stats
     filesChanged = 0
     bytesSaved = 0
+    bytesOriginal = 0
     def worker():
-        global filesChanged, bytesSaved
+        global filesChanged, bytesSaved, bytesOriginal
         while True:
             path = pngs.get()
-            saved = crushPng(options.path, options.opts, path)
+            original, saved = crushPng(options.path, options.opts, path)
+            bytesOriginal += original
             if saved:
                 filesChanged += 1
                 bytesSaved += saved
@@ -90,3 +92,4 @@ about the savings.
     # And print some summary info
     print "Files changed: %d" % filesChanged
     print "Bytes saved: %d" % bytesSaved
+    print "Percentage saved: %f" % (100 * float(bytesSaved) / bytesOriginal), "%"
