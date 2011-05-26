@@ -20,10 +20,22 @@ import os, subprocess, time, threading
 from optparse import OptionParser
 from Queue import Queue
 
-def crushPng (pngcrush, opts, file):
+# http://en.wikipedia.org/wiki/Portable_Network_Graphics#File_header
+def isPng(path):
+    # not using 'with' for compatibility
+    f = open(path)
+    data = f.read(8)
+    f.close()
+    return data == '\x89PNG\r\n\x1a\n'
+
+def crushPng(pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
-    process = subprocess.Popen([pngcrush, opts, file, crushedFile],
-        stdout=open('/dev/null'), stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        ' '.join([pngcrush, opts, file, crushedFile]),
+        stdout=open('/dev/null'),
+        stderr=subprocess.PIPE,
+        shell=True
+    )
     if not process.wait() == 0:
         stdout, stderr = process.communicate()
         print "Error running pngcrush: %s" % stderr
@@ -34,10 +46,10 @@ def crushPng (pngcrush, opts, file):
     newStat = os.stat(crushedFile)
     if newStat.st_size < oldStat.st_size:
         os.rename(crushedFile, file)
-        return oldStat.st_size - newStat.st_size
+        return (oldStat.st_size, oldStat.st_size - newStat.st_size)
     else:
         os.remove(crushedFile)
-        return 0
+        return (oldStat.st_size, 0)
 
 if __name__ == "__main__":
     parser = OptionParser(usage='''crushpngs [options] [path]
@@ -66,11 +78,13 @@ about the savings.
     # Keep some stats
     filesChanged = 0
     bytesSaved = 0
+    bytesOriginal = 0
     def worker():
-        global filesChanged, bytesSaved
+        global filesChanged, bytesSaved, bytesOriginal
         while True:
             path = pngs.get()
-            saved = crushPng(options.path, options.opts, path)
+            original, saved = crushPng(options.path, options.opts, path)
+            bytesOriginal += original
             if saved:
                 filesChanged += 1
                 bytesSaved += saved
@@ -81,13 +95,12 @@ about the savings.
     for arg in args:
         for root, dirs, files in os.walk(arg):
             for name in files:
-                if not name.endswith('.png'):
-                    continue
                 path = os.path.join(root, name)
-                if os.path.getmtime(path) > earliest:
-                    pngs.put(path)
-                else:
-                    tooOld.add(path)
+                if isPng(path):
+                    if os.path.getmtime(path) > earliest:
+                        pngs.put(path)
+                    else:
+                        tooOld.add(path)
 
     if not pngs:
         print "No files to crush"
@@ -105,4 +118,7 @@ about the savings.
 
     # And print some summary info
     print "Files changed: %d" % filesChanged
-    print "Bytes saved: %d" % bytesSaved
+    if bytesOriginal:
+        print "Bytes saved: %d / %d (%.2f%%)" % (bytesSaved, bytesOriginal, 100 * float(bytesSaved) / bytesOriginal)
+    else:
+        print "Bytes saved: 0"
