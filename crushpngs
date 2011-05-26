@@ -4,6 +4,14 @@ import os, subprocess, time, threading
 from optparse import OptionParser
 from Queue import Queue
 
+# http://en.wikipedia.org/wiki/Portable_Network_Graphics#File_header
+def isPng(path):
+    # not using 'with' for compatibility
+    f = open(path)
+    data = f.read(8)
+    f.close()
+    return data == '\x89PNG\r\n\x1a\n'
+
 def crushPng(pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
     process = subprocess.Popen(
@@ -71,13 +79,12 @@ about the savings.
     for arg in args:
         for root, dirs, files in os.walk(arg):
             for name in files:
-                if not name.endswith('.png'):
-                    continue
                 path = os.path.join(root, name)
-                if os.path.getmtime(path) > earliest:
-                    pngs.put(path)
-                else:
-                    tooOld.add(path)
+                if isPng(path):
+                    if os.path.getmtime(path) > earliest:
+                        pngs.put(path)
+                    else:
+                        tooOld.add(path)
 
     if not pngs:
         print "No files to crush"
