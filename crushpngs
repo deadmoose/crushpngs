@@ -6,7 +6,7 @@ from Queue import Queue
 
 def crushPng (pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
-    process = subprocess.Popen([pngcrush, opts, file, crushedFile], 
+    process = subprocess.Popen([pngcrush, opts, file, crushedFile],
         stdout=open('/dev/null'), stderr=subprocess.PIPE)
     if not process.wait() == 0:
         stdout, stderr = process.communicate()
