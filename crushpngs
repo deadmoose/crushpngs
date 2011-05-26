@@ -6,8 +6,12 @@ from Queue import Queue
 
 def crushPng(pngcrush, opts, file):
     crushedFile = "%s.crushed" % file
-    process = subprocess.Popen([pngcrush, opts, file, crushedFile],
-        stdout=open('/dev/null'), stderr=subprocess.PIPE)
+    process = subprocess.Popen(
+        ' '.join([pngcrush, opts, file, crushedFile]),
+        stdout=open('/dev/null'),
+        stderr=subprocess.PIPE,
+        shell=True
+    )
     if not process.wait() == 0:
         stdout, stderr = process.communicate()
         print "Error running pngcrush: %s" % stderr
