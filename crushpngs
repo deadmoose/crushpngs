@@ -95,5 +95,7 @@ about the savings.
 
     # And print some summary info
     print "Files changed: %d" % filesChanged
-    print "Bytes saved: %d" % bytesSaved
-    print "Percentage saved: %f" % (100 * float(bytesSaved) / bytesOriginal), "%"
+    if bytesOriginal:
+        print "Bytes saved: %d / %d (%.2f%%)" % (bytesSaved, bytesOriginal, 100 * float(bytesSaved) / bytesOriginal)
+    else:
+        print "Bytes saved: 0"
