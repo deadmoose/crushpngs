@@ -108,6 +108,7 @@ about the savings.
 
     if tooOld:
         print "Old files ignored: %s" % len(tooOld)
+
     print "Files to process: %s" % pngs.qsize()
     for i in range(options.threads):
         t = threading.Thread(target=worker)
